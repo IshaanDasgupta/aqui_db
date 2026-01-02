@@ -1,0 +1,25 @@
+X(TK_EQEQ, "==")
+X(TK_LE, "<=")
+X(TK_GE, ">=")
+X(TK_NE, "!=")
+
+X(TK_EQ, "=")
+X(TK_LT, "<")
+X(TK_GT, ">")
+
+X(TK_PLUS, "\\+")
+X(TK_MINUS, "\\-")
+X(TK_STAR, "\\*")
+X(TK_DIVIDE, "/")
+
+X(TK_SEMICOL, "\\;")
+X(TK_COMMA, "\\,")
+X(TK_DOT, "\\.")
+X(TK_LPAREN, "\\(")
+X(TK_RPAREN, "\\)")
+
+X(TK_WHITESPACE, "[ \t\n\r]+")
+
+X(TK_NUMBER, "[0-9]+")
+X(TK_STRING, "'[^']*'")
+X(TK_IDENT, "[a-zA-Z_][a-zA-Z0-9_]*")
