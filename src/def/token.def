@@ -19,6 +19,7 @@ X(TK_LPAREN, "\\(")
 X(TK_RPAREN, "\\)")
 
 X(TK_WHITESPACE, "[ \t\n\r]+")
+X(TK_EOF, "\\0")
 
 X(TK_NUMBER, "[0-9]+")
 X(TK_STRING, "'[^']*'")

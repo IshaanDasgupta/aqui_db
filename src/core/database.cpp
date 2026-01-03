@@ -12,12 +12,12 @@ namespace core {
 Database::Database() = default;
 
 tl::expected<void, DatabaseException> Database::createTable(const std::string& table_name, const std::vector<core::ColumnSchema>& columns, int pk_idx){
-    auto it = tables.find(table_name);
+    std::map<std::string, core::Table>::iterator it = tables.find(table_name);
     if (it != tables.end()) {
         return tl::unexpected(DuplicateTable(table_name));
     }
 
-    auto table_creation_result = core::Table::create(table_name, columns, pk_idx);
+    tl::expected<core::Table, core::DatabaseException> table_creation_result = core::Table::create(table_name, columns, pk_idx);
 
     if (!table_creation_result){
         return tl::unexpected(table_creation_result.error());
@@ -28,7 +28,7 @@ tl::expected<void, DatabaseException> Database::createTable(const std::string& t
 };
 
 tl::expected<void, DatabaseException> Database::insert(const std::string& table_name, const core::Record& vals){
-    auto it = tables.find(table_name);
+    std::map<std::string, core::Table>::iterator it = tables.find(table_name);
     if (it == tables.end()) {
         return tl::unexpected(TableNotFoundException(table_name));
     }
@@ -38,7 +38,7 @@ tl::expected<void, DatabaseException> Database::insert(const std::string& table_
 };
 
 tl::expected<Record, DatabaseException> Database::get(const std::string& table_name, const Field& key) const {
-    auto it = tables.find(table_name);
+    std::map<std::string, core::Table>::const_iterator it = tables.find(table_name);
     if (it == tables.end()) {
         return tl::unexpected(TableNotFoundException(table_name));
     }
@@ -48,7 +48,7 @@ tl::expected<Record, DatabaseException> Database::get(const std::string& table_n
 };
 
 tl::expected<std::vector<Record>, DatabaseException> Database::getAll(const std::string& table_name) const {
-    auto it = tables.find(table_name);
+    std::map<std::string, core::Table>::const_iterator it = tables.find(table_name);
     if (it == tables.end()) {
         return tl::unexpected(TableNotFoundException(table_name));
     }

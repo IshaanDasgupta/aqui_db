@@ -1,6 +1,7 @@
 #include "utils/to_string.hpp"
 #include "core/database.hpp"   
-#include "client/token.hpp"       
+#include "client/token.hpp"
+#include "client/parser.hpp"       
 #include <variant>
 
 namespace utils {
@@ -36,6 +37,19 @@ std::string to_string(client::TokenType t) {
         #include "keyword.def"
         #undef K
         default: return "UNKNOWN";
+    }
+}
+
+std::string to_string(const client::ASTNodeType type) {
+    switch (type) {
+        case client::ASTNodeType::QUERIES:       return "QUERIES";
+        case client::ASTNodeType::CREATE_STMT:   return "CREATE_STMT";
+        case client::ASTNodeType::DATABASE_DEF:  return "DATABASE_DEF";
+        case client::ASTNodeType::TABLE_DEF:     return "TABLE_DEF";
+        case client::ASTNodeType::COL_DEF:       return "COL_DEF";
+        case client::ASTNodeType::DATATYPE:      return "DATATYPE";
+        case client::ASTNodeType::NUMBER:        return "NUMBER";
+        default:                                 return "UNKNOWN";
     }
 }
 

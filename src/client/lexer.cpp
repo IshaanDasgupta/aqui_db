@@ -36,7 +36,7 @@ tl::expected<std::vector<client::Token>, client::ClientException> Lexer::tokeniz
         TokenType matchedTokenType = TokenType::UNKNOWN;
         re2::StringPiece longestMatch("");
 
-        for (const auto& spec : tokenSpecs){
+        for (const TokenSpec& spec : tokenSpecs){
             //RE2::Consume advances the input cursor furthur hence we need to create a stringPiece for each match
             re2::StringPiece inputAtCursor(cargo.data() + cursor, cargo.size() - cursor);
             re2::RE2 regex(spec.pattern);
@@ -62,7 +62,7 @@ tl::expected<std::vector<client::Token>, client::ClientException> Lexer::tokeniz
         std::string tokenValue = std::string(longestMatch.data(), longestMatch.size());
         std::string lower = tokenValue;
         std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return std::tolower(c); });
-        auto it = keywordLookup.find(lower);
+        std::unordered_map<std::string, TokenType>::const_iterator it = keywordLookup.find(lower);
 
         //upgrade indent to keyword if possible
         if (matchedTokenType == TokenType::TK_IDENT && it != keywordLookup.end()){

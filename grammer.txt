@@ -1,0 +1,8 @@
+create_statement := create database_def|table_def ;
+
+database_def := database IDENT
+
+table_def := table IDENT ( (col_def,)* col_def )
+col_def := datatype IDENT
+datatype := INT_TYPE | BOOL_TYPE | CHAR_TYPE(size)
+size := NUMBER
