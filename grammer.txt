@@ -1,8 +1,31 @@
-create_statement := create database_def|table_def ;
+query := create_statement | insert_stmt | select_stmt | update_stmt | delete_stmt 
 
-database_def := database IDENT
+//statements 
+create_stmt := CREATE database_def | table_def ;
+insert_stmt := INSERT IDENT col_val_list ;
+select_stmt := SELECT ident_list IDENT where_caluse ;
+update_stmt := UPDATE IDENT assgin_list where_caluse ;
+delete_stmt := DELETE IDENT where_caluse ;
 
-table_def := table IDENT ( (col_def,)* col_def )
+//create stmt helpers
+database_def := DATABASE IDENT
+table_def := TABLE IDENT ( column_def_list )
+column_def_list := col_def (, col_def)*
 col_def := datatype IDENT
-datatype := INT_TYPE | BOOL_TYPE | CHAR_TYPE(size)
-size := NUMBER
+datatype := INT_TYPE | BOOL_TYPE | CHAR_TYPE(NUMBER)
+
+//insert stmt helpers
+col_val_list := col_val (, col_val)*
+col_val := ( data (, data)* )
+
+//select stmt helpers
+ident_list := IDENT (, IDENT)*
+
+//update stmt helpers
+assgin_list := expr ("," expr)*
+
+//common helpers
+where_caluse := (WHERE expr) | null
+expr := IDENT = data
+
+data := NUMBER | STRING | BOOL

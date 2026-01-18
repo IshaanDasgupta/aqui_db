@@ -1,6 +1,7 @@
 #include <iostream>
 #include "core/database.hpp"
 #include "client/parser.hpp"
+#include "client/semantic_types.hpp"
 #include "client/lexer.hpp"
 #include "utils/to_string.hpp"
 
@@ -15,26 +16,24 @@ int main() {
             break;
         }
 
-        tl::expected<std::vector<client::Token>, client::ClientException> out = client::Lexer::tokenize(command);
-        if (!out){
-            std::cout << out.error().what() << "\n";
+        tl::expected<std::vector<client::Token>, client::ClientException> lexerOut = client::Lexer::tokenize(command);
+        if (!lexerOut){
+            std::cout << lexerOut.error().what() << "\n";
             continue;
         };
 
-        std::vector<client::Token> tokens = *out;
-        // for (client::Token i:tokens){
-        //     std::cout << utils::to_string(i) << "\n";
-        // }
+        std::cout << "Lexing done\n";
 
-        client::Parser* parser = new client::Parser(tokens);
-        auto ast = parser->parse();
+        std::vector<client::Token> tokens = *lexerOut;
+        tokens.push_back(client::Token{client::TokenType::TK_EOF, ""});
 
-        if (!ast) {
-            std::cerr << ast.error().what() << "\n";
+        tl::expected<client::QueryList, client::ClientException> parserOut = client::TokenListParser::parse(tokens);
+        if (!parserOut){
+            std::cout << parserOut.error().what() << "\n";
             continue;
-        }
+        };
 
-        parser->printAST(*ast);
+        std::cout << "Parsing done\n";
 
     }
     

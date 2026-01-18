@@ -6,297 +6,251 @@
 #include "utils/to_string.hpp"
 #include <tl/expected.hpp>
 #include <client/lexer.hpp>
+#include <client/semantic_types.hpp>
+#include <client/parser_combinators.hpp>
 #include <iostream>
 
 namespace client{
 
-Parser::Parser(std::vector<client::Token>& tokens)
-    : cursor(0), tokens(tokens) {}
-
-
-tl::expected<client::ASTNode*, client::ClientException> Parser::parse(){
-    ASTNode* queries = new ASTNode();
-    queries->type = ASTNodeType::QUERIES;
-
-    while(cursor < tokens.size() && tokens[cursor].type != TokenType::TK_EOF){
-        switch (tokens[cursor].type)
+Parser<client::Token> token(client::TokenType expectedType) {
+    return Parser<client::Token>{
+        [expectedType](size_t& cursor, const std::vector<Token>& tokens)
+            -> tl::expected<client::Token, client::ClientException>
         {
-            case TokenType::TK_CREATE: {
-                ASTNode* createNode = new ASTNode();
-                createNode->type = ASTNodeType::CREATE_STMT;
-                advance();
-
-                tl::expected<void, client::ClientException> out1 = expect({TokenType::TK_DATABASE, TokenType::TK_TABLE});
-                if (!out1){
-                    return tl::unexpected(out1.error());
-                }
-
-                if (tokens[cursor].type == TokenType::TK_DATABASE){
-                    tl::expected<client::ASTNode*, client::ClientException> out = parseDatabaseDef();
-                    if (!out){
-                        return tl::unexpected(out.error());
-                    }
-                    createNode->children.push_back(*out);
-                }
-                else if (tokens[cursor].type == TokenType::TK_TABLE){
-                    tl::expected<client::ASTNode*, client::ClientException> out = parserTableDef();
-                    if (!out){
-                        return tl::unexpected(out.error());
-                    }
-                    createNode->children.push_back(*out);         
-                }
-                else{
-                    return tl::unexpected(client::ClientException(
-                        "Expected DATABASE or TABLE after CREATE, got " + utils::to_string(tokens[cursor].type)
-                    ));
-                };
-
-                tl::expected<void, client::ClientException> out2 = expectAndAdvance(TokenType::TK_SEMICOL);
-                if (!out2){
-                    return tl::unexpected(out2.error());
-                }
-
-                queries->children.push_back(createNode);
-                break;
-            }
-
-            default: {
+            if (cursor >= tokens.size())
                 return tl::unexpected(client::ClientException(
-                    "Unexpected token at top level: " + utils::to_string(tokens[cursor].type) + ", expected CREATE statement"
-                ));
-            }
-        }
-    }
+                    "Expected token " + utils::to_string(expectedType) + " got EOF"));
 
-    return queries;
+            if (tokens[cursor].type != expectedType)
+                return tl::unexpected(client::ClientException(
+                    "Expected token " + utils::to_string(expectedType) +
+                    " got " + utils::to_string(tokens[cursor].type)));
+
+            return tokens[cursor++];
+        },
+        utils::to_string(expectedType)
+    };
 }
 
-void Parser::advance(){
-    this->cursor++;
-}
 
-tl::expected<void, client::ClientException> Parser::expect(client::TokenType type) const {
-    if (this->cursor >= tokens.size() || this->tokens[cursor].type != type){
-        return tl::unexpected(ClientException(
-            "Unexpected token: expected " + utils::to_string(type) +
-            ", got " + (this->cursor < tokens.size() ? utils::to_string(tokens[cursor].type) : "EOF")
-        ));
-    }
-
-    return {};
-}
-
-tl::expected<void, client::ClientException> Parser::expect(const std::vector<client::TokenType> types) const {
-    if (this->cursor >= tokens.size()){
-        return tl::unexpected(ClientException("Unexpected end of input, expected one of multiple token types"));
-    }
-
-    bool good = false;
-    for (client::TokenType candidate: types){
-        if (this->tokens[cursor].type == candidate){
-            return {};
-        }
-    }
-
-    std::string expected_tokens = "{ ";
-    for (auto t : types) expected_tokens += utils::to_string(t) + " ";
-    expected_tokens += "}";
-
-    return tl::unexpected(ClientException(
-        "Unexpected token: expected one of " + expected_tokens +
-        ", got " + utils::to_string(tokens[cursor].type)
-    ));
-}
-
-tl::expected<void, client::ClientException> Parser::expectAndAdvance(client::TokenType type){
-    if (this->cursor >= tokens.size() || this->tokens[cursor].type != type){
-        return tl::unexpected(ClientException(
-            "Unexpected token: expected " + utils::to_string(type) +
-            ", got " + (this->cursor < tokens.size() ? utils::to_string(tokens[cursor].type) : "EOF")
-        ));
-    }
-
-    advance();
-    return {};
+auto ident = Parser<std::string>{
+    token(TokenType::TK_IDENT).map([](const Token& t){ return t.value; }),
+    "Ident"
 };
 
-tl::expected<void, client::ClientException> Parser::expectAndAdvance(const std::vector<client::TokenType> types){
-    if (this->cursor >= tokens.size()){
-        return tl::unexpected(ClientException("Unexpected end of input, expected one of multiple token types"));
-    }
+auto number = Parser<int>{
+    token(TokenType::TK_NUMBER).map([](const Token& t){ return std::stoi(t.value); }),
+    "Number"
+};
 
-    bool good = false;
-    for (client::TokenType candidate: types){
-        if (this->tokens[cursor].type == candidate){
-            advance();
-            return {};
-        }
-    }
+auto string = Parser<std::string>{
+    token(TokenType::TK_STRING).map([](const Token& t){ return t.value.substr(1, t.value.size() - 2); }),
+    "String"
+};
 
-    std::string expected_tokens = "{ ";
-    for (auto t : types) expected_tokens += utils::to_string(t) + " ";
-    expected_tokens += "}";
+auto datatype = Parser<client::Datatype>{ 
+    client::choice<client::Datatype>({
+        client::token(TokenType::TK_NUMBER_TYPE).map([](const client::Token&) { return Datatype{Datatype::INT}; }),
+        client::token(TokenType::TK_BOOL_TYPE).map([](const client::Token&) { return Datatype{Datatype::BOOL}; }),
+        client::seq(seq(token(TokenType::TK_CHAR_TYPE), token(TokenType::TK_LPAREN)), seq(number, token(TokenType::TK_RPAREN))).map([](auto p) { return Datatype{Datatype::CHAR, p.second.first}; })
+    }),
+    "Datatype"
+};
 
-    return tl::unexpected(ClientException(
-        "Unexpected token: expected one of " + expected_tokens +
-        ", got " + utils::to_string(tokens[cursor].type)
-    ));
+auto data = Parser<client::Data>{
+    client::choice<client::Data>({
+        number.map([](auto p){ return Data{Data::NUMBER, p};}),
+        string.map([](auto p){ return Data{Data::STRING, p};})
+    }),
+    "Data"
+};
+
+auto expr = Parser<client::Expr>{
+    seq(
+        seq(
+            ident,
+            token(TokenType::TK_EQ)
+        ),
+        data
+    ).map([](auto p){ return Expr{p.first.first, p.second}; }),
+    "Expr"
+};
+
+auto colVal = Parser<client::ColVal>{
+    seq(
+        seq(
+            token(TokenType::TK_LPAREN),
+            sep_by(data, token(TokenType::TK_COMMA))
+        ),
+        token(TokenType::TK_RPAREN)
+    ).map([](auto p){ return p.first.second; }),
+    "ColVal"
+};
+
+auto colValList = Parser<client::ColValList>{
+    sep_by(
+        colVal,
+        token(TokenType::TK_COMMA)
+    ),
+    "ColValList"
+};
+
+auto identList = Parser<client::IdentList>{
+    sep_by(
+        ident,
+        token(TokenType::TK_COMMA)
+    ),
+    "IdentList"
+};
+
+auto colDef = Parser<client::ColDef>{
+    client::seq(datatype,ident).map([](auto p) { return ColDef{p.first, p.second}; }),
+    "Coldef"
+};
+
+auto whereClause = Parser<client::WhereClause>{
+    optional(
+        seq(
+            token(TokenType::TK_WHERE),
+            expr
+        )
+    ).map([](auto p) -> client::WhereClause {
+        if (p) return p->second;
+        return std::nullopt;
+    }),
+    "WhereClause"
+};
+
+auto assginList = Parser<client::AssginList>{
+    sep_by(
+        expr,
+        token(TokenType::TK_COMMA)
+    )
+};
+
+auto tableDef = Parser<client::TableDef>{
+    client::seq(
+        client::seq(
+            client::seq(
+                token(TokenType::TK_TABLE),
+                ident
+            ),
+            client::seq(
+                token(TokenType::TK_LPAREN),
+                client::sep_by(colDef, token(TokenType::TK_COMMA))
+            )
+        ),
+        token(TokenType::TK_RPAREN)
+    ).map([](auto p) { return TableDef{ p.first.first.second, p.first.second.second}; } ),
+    "TableDef"
+};
+
+auto databaseDef = Parser<client::DatabaseDef>{ 
+    client::seq(
+        token(TokenType::TK_DATABASE),
+        ident
+    ).map([](auto p) { return DatabaseDef{p.second}; }),
+    "DatabaseDef"
+};
+
+auto createStmt = Parser<client::CreateStmt>{ 
+    client::seq(
+        client::seq(
+                token(TokenType::TK_CREATE),
+                choice<client::CreateStmt>({
+                    databaseDef.map([](auto p){ return CreateStmt{CreateStmt::DATABASE, p}; } ),
+                    tableDef.map([](auto p){ return CreateStmt{CreateStmt::TABLE, p}; } ),
+                })
+            ).map([](auto p) { return p.second; }),
+        token(TokenType::TK_SEMICOL)
+    ).map([](auto p) {return p.first;}),
+    "CreateStmt"
+};
+
+auto insertStmt = Parser<client::InsertStmt>{ 
+    client::seq(
+        client::seq(
+            token(TokenType::TK_INSERT),
+            ident
+        ),
+        client::seq(
+            colValList,
+            token(TokenType::TK_SEMICOL)
+        )
+    ).map([](auto p){ return InsertStmt{p.first.second, p.second.first}; }),
+    "InsertStmt"
+};
+
+auto selectStmt = Parser<client::SelectStmt>{ 
+    client::seq(
+        client::seq(
+            client::seq(
+                token(TokenType::TK_SELECT),
+                identList
+            ),
+            client::seq(
+                ident,
+                whereClause
+            )
+        ),
+        token(TokenType::TK_SEMICOL)
+    ).map([](auto p){ return SelectStmt{p.first.second.first, p.first.first.second}; }),
+    "SelectStmt"
+};
+
+auto updateStmt = Parser<client::UpdateStmt>{ 
+    client::seq(
+        client::seq(
+            client::seq(
+                token(TokenType::TK_UPDATE),
+                ident
+            ),
+            client::seq(
+                assginList,
+                whereClause
+            )
+        ),
+        token(TokenType::TK_SEMICOL)
+    ).map([](auto p){ return UpdateStmt{p.first.first.second, p.first.second.first, p.first.second.second}; }),
+    "UpdateStmt"
+};
+
+auto deleteStmt = Parser<client::DeleteStmt>{ 
+    client::seq(
+        client::seq(
+            token(TokenType::TK_DELETE),
+            ident
+        ),
+        client::seq(
+            whereClause,
+            token(TokenType::TK_SEMICOL)
+        )
+    ).map([](auto p){ return DeleteStmt{p.first.second, p.second.first}; }),
+    "DeleteStmt"
+};
+
+auto query = Parser<client::Query>{ 
+    choice<client::Query>({
+        createStmt.map([](auto p){ return Query{p}; }),
+        insertStmt.map([](auto p){ return Query{p}; }),
+        selectStmt.map([](auto p){ return Query{p}; }),
+        updateStmt.map([](auto p){ return Query{p}; }),
+        deleteStmt.map([](auto p){ return Query{p}; })
+    }),
+    "Query"
+};
+
+auto queryList = Parser<client::QueryList>{
+    many(query),
+    "QueryList"
+};
+
+tl::expected<QueryList, client::ClientException> TokenListParser::parse(const std::vector<client::Token>& toks) {
+    std::size_t pos=0;
+    auto res = queryList(pos, toks);
+    return res;
 };
 
 
-tl::expected<client::ASTNode*, client::ClientException> Parser::parseDatabaseDef(){
-    tl::expected<void, client::ClientException> out = expectAndAdvance(TokenType::TK_DATABASE);
-    if (!out){
-        return tl::unexpected(out.error());
-    }
-
-    ASTNode* databaseDefNode = new ASTNode();
-    databaseDefNode->type = ASTNodeType::DATABASE_DEF;
-
-    tl::expected<void, client::ClientException> out2 = expect(TokenType::TK_IDENT);
-    if (!out2){
-        return tl::unexpected(out2.error());
-    }    
-
-    databaseDefNode->payload = tokens[cursor].value;
-    advance();
-
-    return databaseDefNode;
-};
-
-tl::expected<client::ASTNode*, client::ClientException> Parser::parserTableDef(){
-    tl::expected<void, client::ClientException> out1 = expectAndAdvance(TokenType::TK_TABLE);
-    if (!out1){
-        return tl::unexpected(out1.error());
-    }
-
-    ASTNode* tableDefNode = new ASTNode();
-    tableDefNode->type = ASTNodeType::TABLE_DEF;
-
-    tl::expected<void, client::ClientException> out2 = expect(TokenType::TK_IDENT);
-    if (!out2){
-        return tl::unexpected(out2.error());
-    }    
-
-    tableDefNode->payload = tokens[cursor].value;
-    advance();
-
-    tl::expected<void, client::ClientException> out3 = expectAndAdvance(TokenType::TK_LPAREN);
-    if (!out3){
-        return tl::unexpected(out3.error());
-    }
-
-    while(true){
-        tl::expected<client::ASTNode*, client::ClientException> out = parserColDef();
-        if (!out){
-            return tl::unexpected(out.error());
-        }
-        tableDefNode->children.push_back(*out);
-
-        tl::expected<void, client::ClientException> out2 = expect(TokenType::TK_COMMA);
-        if (!out2){
-            break;
-        }
-
-        advance();
-    }
-
-    tl::expected<void, client::ClientException> out = expectAndAdvance(TokenType::TK_RPAREN);
-    if (!out){
-        return tl::unexpected(out.error());
-    }
-
-    return tableDefNode;
-};
-
-tl::expected<client::ASTNode*, client::ClientException> Parser::parserColDef(){
-    ASTNode* colDefNode = new ASTNode();
-    colDefNode->type = ASTNodeType::COL_DEF;
-
-    tl::expected<client::ASTNode*, client::ClientException> out1 = parseDatatype();
-    if (!out1){
-        return tl::unexpected(out1.error());
-    }
-    colDefNode->children.push_back(*out1);
-
-    tl::expected<void, client::ClientException> out2 = expect(TokenType::TK_IDENT);
-    if (!out2){
-        return tl::unexpected(out2.error());
-    }    
-
-    colDefNode->payload = tokens[cursor].value;
-    advance();
-
-    return colDefNode;
-};
-
-tl::expected<client::ASTNode*, client::ClientException> Parser::parseDatatype() {
-    ASTNode* datatypeNode = new ASTNode();
-    datatypeNode->type = ASTNodeType::DATATYPE;
-
-    tl::expected<void, client::ClientException> out = expect({TokenType::TK_NUMBER_TYPE, TokenType::TK_BOOL_TYPE, TokenType::TK_CHAR_TYPE});
-    if (!out){
-        return tl::unexpected(out.error());
-    }    
-
-    datatypeNode->payload = tokens[cursor].value;
-    TokenType datatype = tokens[cursor].type;
-    advance();
-
-    if (datatype == TokenType::TK_CHAR_TYPE){
-        tl::expected<void, client::ClientException> out1 = expectAndAdvance(TokenType::TK_LPAREN);
-        if (!out1){
-            return tl::unexpected(out1.error());
-        }
-
-        tl::expected<client::ASTNode*, client::ClientException> out2 = parseNumber();
-        if (!out2){
-            return tl::unexpected(out2.error());
-        }
-        datatypeNode->children.push_back(*out2);
-
-        tl::expected<void, client::ClientException> out3 = expectAndAdvance(TokenType::TK_RPAREN);
-        if (!out3){
-            return tl::unexpected(out3.error());
-        }
-    }
-
-    return datatypeNode;
-}
-
-tl::expected<client::ASTNode*, client::ClientException> Parser::parseNumber(){
-    ASTNode* numberNode = new ASTNode();
-    numberNode->type = ASTNodeType::NUMBER;
-
-    tl::expected<void, client::ClientException> out = expect(TokenType::TK_NUMBER);
-    if (!out){
-        return tl::unexpected(out.error());
-    }
-
-    numberNode->payload = tokens[cursor].value;
-    advance();
-
-    return numberNode;
-}
-
-
-void Parser::printAST(const client::ASTNode* node, int indent) {
-    if (!node) return;
-
-    for (int i = 0; i < indent; ++i)
-        std::cout << "  ";
-
-    std::cout << utils::to_string(node->type);
-
-    if (!node->payload.empty()) {
-        std::cout << " [" << node->payload << "]";
-    }
-
-    std::cout << "\n";
-
-    for (const ASTNode* child : node->children) {
-        printAST(child, indent + 1);
-    }
-}
 
 }
