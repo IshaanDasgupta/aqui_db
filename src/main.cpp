@@ -1,41 +1,38 @@
 #include <iostream>
-#include "core/database.hpp"
-#include "client/parser.hpp"
-#include "client/semantic_types.hpp"
-#include "client/lexer.hpp"
-#include "utils/to_string.hpp"
+#include <string>
+#include <core/page_manager.hpp>
+#include <vector>
 
 int main() {
-    core::Database db;
-    
-    while(true){
-        std::string command;
-        std::getline(std::cin, command);
+    core::Page_Manager pm = core::Page_Manager();
+    char page[config::PAGE_SIZE];
 
-        if (command == "exit"){
-            break;
-        }
-
-        tl::expected<std::vector<client::Token>, client::ClientException> lexerOut = client::Lexer::tokenize(command);
-        if (!lexerOut){
-            std::cout << lexerOut.error().what() << "\n";
-            continue;
-        };
-
-        std::cout << "Lexing done\n";
-
-        std::vector<client::Token> tokens = *lexerOut;
-        tokens.push_back(client::Token{client::TokenType::TK_EOF, ""});
-
-        tl::expected<client::QueryList, client::ClientException> parserOut = client::TokenListParser::parse(tokens);
-        if (!parserOut){
-            std::cout << parserOut.error().what() << "\n";
-            continue;
-        };
-
-        std::cout << "Parsing done\n";
+    std::vector<uint32_t> even(1024),odd(1024);
+    for (int i=0 ; i<1024; i++){
+        even[i] = 2*(i+1);
+        odd[i] = 2*(i+1) - 1;
 
     }
-    
+
+    memcpy(page, even.data(), config::PAGE_SIZE);
+    pm.write_page(0, page);
+
+    memcpy(page, odd.data(), config::PAGE_SIZE);
+    pm.write_page(config::PAGE_SIZE, page);
+
+    std::vector<uint32_t> out(1024);
+
+    pm.read_page(config::PAGE_SIZE, page);
+    memcpy(out.data(), page, config::PAGE_SIZE);
+    for (auto &i: out) 
+        std::cout << i << " ";
+    std::cout << "\n";
+
+    pm.read_page(0, page);
+    memcpy(out.data(), page, config::PAGE_SIZE);
+    for (auto &i: out) 
+        std::cout << i << " ";
+    std::cout << "\n";
+
     return 0;
 }

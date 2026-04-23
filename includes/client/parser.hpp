@@ -1,20 +1,16 @@
 #pragma once
 
-#include "core/database.hpp"
-#include "client/exception.hpp"
-#include <tl/expected.hpp>
-#include <client/token.hpp>
-#include <client/semantic_types.hpp>
 #include <string>
-#include <vector>
+#include "types/types.hpp"
 
 namespace client{
 
-class TokenListParser{
+class Parser{
 public:
-    static tl::expected<client::QueryList, client::ClientException> parse(const std::vector<client::Token>& toks);
+    // would return a query of type (PUT, GET, GET_ALL, DEL) with associated data from the text input
+    static types::Query parse(const std::string& input);
 private:
-};
+
+};    
 
 }
-
