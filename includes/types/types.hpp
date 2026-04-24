@@ -39,15 +39,24 @@ using QueryRes = std::variant<
     std::string              // ERROR
 >;
 
+struct StoreHeader{
+};
+
 struct Frame
 {
     bool is_dirty;
     char (&buffer)[config::PAGE_SIZE];
 };
 
+enum class PageType : uint16_t {
+    INVALID         = 0,
+    DATA            = 1,
+    INDEX           = 2,
+    OVERFLOW_PAGE   = 3
+};
 
 struct SlottedPageHeader{
-    uint32_t page_type;
+    PageType page_type; // 2 bytes
     uint32_t page_id;
     uint32_t tuple_count;
     uint32_t slot_end_offset;
@@ -68,11 +77,11 @@ struct SlottedPage {
 };
 
 struct OverflowPageHeader{
-    uint32_t page_type;
     uint32_t page_id;
-    uint8_t last_page;
     uint32_t next_page_id;
-    uint32_t data_bytes;
+    uint16_t data_bytes;
+    PageType page_type; // 2 bytes
+    uint8_t last_page;
 };
 
 struct OverflowPage {
@@ -87,5 +96,9 @@ struct OverflowPage {
     }
 };
 
+struct FreePage {
+    uint32_t page_id;
+    uint16_t offset;
+}l
 
 }
