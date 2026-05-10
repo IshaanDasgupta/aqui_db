@@ -4,7 +4,8 @@
 #include "types/types.hpp"
 #include "utils/memory.hpp"
 
-types::Tuple core::SlottedPageManager::readTuple(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id, const uint32_t offset){
+//TODO: verify sizes
+types::Tuple core::SlottedPageManager::readTuple(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id, const uint16_t offset){
     const types::Frame* frame = buffer_pool_manager.fetchPage(page_id);
     char* buffer = frame->buffer;
 
@@ -45,16 +46,9 @@ types::Tuple core::SlottedPageManager::readTuple(core::Buffer_Pool_Manager& buff
 
 uint32_t core::SlottedPageManager::writeTuple(
         core::FreeSpaceDirectory free_space_directory,
-        core::PageDirectory page_directory,
         core::Buffer_Pool_Manager& buffer_pool_manager,
-        const uint32_t page_id,
         const types::Tuple& tuple
     ){
-    types::Frame* frame = buffer_pool_manager.fetchPageMut(page_id);
-    char* buffer = frame->buffer;
-
-    types::SlottedPageHeader header = deserializeSlottedPageHeader(buffer);    
-
     // compute key, value and meta-data sizes
     uint16_t key_size;
     uint8_t key_overfow;
@@ -82,10 +76,6 @@ uint32_t core::SlottedPageManager::writeTuple(
         value = tuple.val;
     }
 
-    // check whether the tuple can fit into the current page
-    uint16_t continuous_free_space = header.record_start_offset - header.slot_end_offset;
-    uint16_t total_free_space = continuous_free_space + header.fragmented_bytes;
-
     uint16_t record_size = sizeof(key_size)     // key_size field
                         + sizeof(key_overfow)   // key_overflow flag
                         + key_size              // key data or overflow page id
@@ -95,18 +85,30 @@ uint32_t core::SlottedPageManager::writeTuple(
 
     uint16_t tuple_size = record_size + sizeof(uint16_t); // record + slot entry
 
+
+    //get the page_id with sufficient space for the tuple or create a new page
+    uint32_t page_id = free_space_directory.checkFreeSpace(tuple_size) == true ? free_space_directory.consumeFreeSpace(tuple_size) : buffer_pool_manager.createPage();
+    types::Frame* frame = buffer_pool_manager.fetchPageMut(page_id);
+    char* buffer = frame->buffer;
+
+    types::SlottedPageHeader header = deserializeSlottedPageHeader(buffer);    
+
+    // check whether the tuple can fit into the current page
+    uint16_t continuous_free_space = header.record_start_offset - header.slot_end_offset;
+    uint16_t total_free_space = continuous_free_space + header.fragmented_bytes;
+
     if (tuple_size > total_free_space){
         throw std::runtime_error("Could not fit tuple into given page");
         return;
     }
 
     if (tuple_size > continuous_free_space){
-        // compaction();
+        //TODO: implement compaction;
     }
 
     // create overflow pages for key and value if required
-    key_overfow_page_id = key_overfow ? core::OverflowPageManager::writeData(free_space_directory, page_directory, buffer_pool_manager, tuple.key.data(), tuple.key.size()) : 0;
-    value_overfow_page_id = value_overfow ? core::OverflowPageManager::writeData(free_space_directory, page_directory, buffer_pool_manager, tuple.val.data(), tuple.val.size()) : 0;
+    key_overfow_page_id = key_overfow ? core::OverflowPageManager::writeData(free_space_directory, buffer_pool_manager, tuple.key.data(), tuple.key.size()) : 0;
+    value_overfow_page_id = value_overfow ? core::OverflowPageManager::writeData(free_space_directory, buffer_pool_manager, tuple.val.data(), tuple.val.size()) : 0;
     
     // start writing record backwards
     uint16_t pos = header.record_start_offset;

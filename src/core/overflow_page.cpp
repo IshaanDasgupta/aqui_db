@@ -3,28 +3,24 @@
 
 uint32_t core::OverflowPageManager::writeData(
         core::FreeSpaceDirectory& free_space_directory,
-        core::PageDirectory& page_directory,
         core::Buffer_Pool_Manager& buffer_pool_manager,
         const char* data,
         const size_t len
     ){
-
-    char buffer[config::PAGE_SIZE];
-    std::memset(buffer, 0, config::PAGE_SIZE);
-
     uint16_t curr_data_len = std::min((size_t)(config::PAGE_SIZE - config::OVERFLOW_HEADER_SIZE), len);
     uint8_t last_page = (curr_data_len == len);
     uint32_t next_page_id = last_page ? 0 : writeData(
                                                 free_space_directory,
-                                                page_directory,
                                                 buffer_pool_manager,
                                                 data + curr_data_len, 
                                                 len - curr_data_len
                                             );
-    types::FreePage free_page = free_space_directory.getFreePage() != 0 ? free_space_directory.consumeFreePage() : page_directory.createPage();
+    uint32_t free_page_id = free_space_directory.checkFreePage() == true ? free_space_directory.consumeFreePage() : buffer_pool_manager.createPage();
+    types::Frame* free_frame = buffer_pool_manager.fetchPageMut(free_page_id);
+    char* buffer = free_frame->buffer;
 
     types::OverflowPageHeader header = {
-        free_page.page_id,
+        free_page_id,
         next_page_id,
         curr_data_len,
         types::PageType::OVERFLOW_PAGE,
@@ -38,10 +34,7 @@ uint32_t core::OverflowPageManager::writeData(
 
     // write the data
     std::memcpy(buffer + config::OVERFLOW_HEADER_SIZE, data, curr_data_len);
-
-    buffer_pool_manager.flushNewPage(free_page.page_id, buffer);
-
-    return free_page.page_id;
+    return free_page_id;
 };
 
 void core::OverflowPageManager::serializeOverflowPageHeader(char (&buffer)[config::OVERFLOW_HEADER_SIZE], const types::OverflowPageHeader& header){

@@ -5,16 +5,15 @@
 
 namespace core{
 
+//TODO: deletion and update(deletion+insert)
 class SlottedPageManager{
 public:
     // returns the deserialized tuple at the given offset in the page with given page_id
-    static types::Tuple readTuple(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id, const uint32_t offset);
+    static types::Tuple readTuple(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id, const uint16_t offset);
     // writes the serialized tuple in the given page_id and returns it's offset
     static uint32_t writeTuple(
         core::FreeSpaceDirectory free_space_directory,
-        core::PageDirectory page_directory,
         core::Buffer_Pool_Manager& buffer_pool_manager,
-        const uint32_t page_id,
         const types::Tuple& tuple
     );
     // soft delets the kv pair at the given offset in the given page_id and returns to total number of bytes freed

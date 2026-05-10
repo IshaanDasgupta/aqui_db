@@ -7,7 +7,8 @@ namespace core
 
 class PageDirectory{
 public:
-    types::FreePage createPage();
+    uint32_t getNextPageId();
+    void incrementTotalPages();
 private:
 };
 

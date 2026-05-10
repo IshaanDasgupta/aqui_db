@@ -44,6 +44,7 @@ struct StoreHeader{
 
 struct Frame
 {
+    uint32_t page_id;
     bool is_dirty;
     char (&buffer)[config::PAGE_SIZE];
 };
@@ -94,11 +95,6 @@ struct OverflowPage {
     OverflowPageHeader* header()  {
         return reinterpret_cast<OverflowPageHeader*>(buffer);
     }
-};
-
-struct FreePage {
-    uint32_t page_id;
-    uint16_t offset;
 };
 
 }

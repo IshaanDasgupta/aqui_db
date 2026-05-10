@@ -5,8 +5,11 @@ namespace core{
 
 class FreeSpaceDirectory{
 public:
-    uint32_t getFreePage();
-    types::FreePage consumeFreePage();
+    bool checkFreeSpace(uint16_t target_size);
+    bool consumeFreeSpace(uint16_t target_size);
+
+    bool checkFreePage();
+    uint32_t consumeFreePage();
 private:
 };
 

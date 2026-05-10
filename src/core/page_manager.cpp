@@ -1,7 +1,7 @@
 #include "core/page_manager.hpp"
 #include "utils/config.hpp"
 
-core::Page_Manager::Page_Manager(){
+core::PageManager::PageManager(){
     file_.open(config::db_path, std::ios::in | std::ios::out | std::ios::binary);
 
     if (!file_.is_open()) {
@@ -15,13 +15,13 @@ core::Page_Manager::Page_Manager(){
     }
 };
 
-core::Page_Manager::~Page_Manager(){
+core::PageManager::~PageManager(){
     if (file_.is_open()) {
         file_.close();
     }
 };
 
-void core::Page_Manager::read_page(const uint32_t offset, char (&buffer)[config::PAGE_SIZE]){
+void core::PageManager::read_page(const uint32_t offset, char (&buffer)[config::PAGE_SIZE]){
     file_.seekg(offset);
     file_.read(buffer, sizeof(buffer));
 
@@ -30,7 +30,7 @@ void core::Page_Manager::read_page(const uint32_t offset, char (&buffer)[config:
     }
 }
 
-void core::Page_Manager::write_page(const uint32_t offset, const char (&buffer)[config::PAGE_SIZE]){
+void core::PageManager::write_page(const uint32_t offset, const char (&buffer)[config::PAGE_SIZE]){
     file_.seekp(offset);
     file_.write(buffer, sizeof(buffer));
     return;

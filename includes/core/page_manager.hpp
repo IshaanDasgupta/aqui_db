@@ -7,10 +7,10 @@
 
 namespace core
 {
-class Page_Manager {
+class PageManager {
 public:
-    Page_Manager();
-    ~Page_Manager();
+    PageManager();
+    ~PageManager();
     
     // reads a single page (in raw binary) from disk
     void read_page(const uint32_t offset, char (&buffer)[config::PAGE_SIZE]);
