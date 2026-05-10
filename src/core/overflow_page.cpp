@@ -1,21 +1,27 @@
 #include "core/overflow_page.hpp"
 
 
-uint32_t core::OverflowPageManager::createOverflowPage(
-        core::FreeSpaceDirectory free_space_directory,
-        core::PageDirectory page_directory,
-        core::Buffer_Pool_Manager buffer_pool_manger,
-        char* data,
-        uint16_t len
+uint32_t core::OverflowPageManager::writeData(
+        core::FreeSpaceDirectory& free_space_directory,
+        core::PageDirectory& page_directory,
+        core::Buffer_Pool_Manager& buffer_pool_manager,
+        const char* data,
+        const size_t len
     ){
 
     char buffer[config::PAGE_SIZE];
     std::memset(buffer, 0, config::PAGE_SIZE);
 
-    uint16_t curr_data_len = std::min((uint16_t)(config::PAGE_SIZE - config::OVERFLOW_HEADER_SIZE), len);
+    uint16_t curr_data_len = std::min((size_t)(config::PAGE_SIZE - config::OVERFLOW_HEADER_SIZE), len);
     uint8_t last_page = (curr_data_len == len);
-    uint32_t next_page_id = last_page ? 0 : createOverflowPage(data + curr_data_len, len - curr_data_len);
-    types::FreePage free_page = free_space_directory.getFreePage() ? free_space_directory.consumeFreePage() : page_directory.createPage();
+    uint32_t next_page_id = last_page ? 0 : writeData(
+                                                free_space_directory,
+                                                page_directory,
+                                                buffer_pool_manager,
+                                                data + curr_data_len, 
+                                                len - curr_data_len
+                                            );
+    types::FreePage free_page = free_space_directory.getFreePage() != 0 ? free_space_directory.consumeFreePage() : page_directory.createPage();
 
     types::OverflowPageHeader header = {
         free_page.page_id,
@@ -33,7 +39,7 @@ uint32_t core::OverflowPageManager::createOverflowPage(
     // write the data
     std::memcpy(buffer + config::OVERFLOW_HEADER_SIZE, data, curr_data_len);
 
-    buffer_pool_manger.flushNewPage(free_page.page_id, buffer);
+    buffer_pool_manager.flushNewPage(free_page.page_id, buffer);
 
     return free_page.page_id;
 };
@@ -72,8 +78,8 @@ types::OverflowPageHeader core::OverflowPageManager::deserializeOverflowPageHead
     return header;
 };
 
-std::string core::OverflowPageManager::getOverflowValue(core::Buffer_Pool_Manager& buffer_pool_manger, const uint32_t page_id) {
-    const types::Frame* frame = buffer_pool_manger.fetchPage(page_id);
+std::string core::OverflowPageManager::getData(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id) {
+    const types::Frame* frame = buffer_pool_manager.fetchPage(page_id);
     char* buffer = frame->buffer;
 
     std::string val = "";
@@ -84,7 +90,7 @@ std::string core::OverflowPageManager::getOverflowValue(core::Buffer_Pool_Manage
     val.append(curr_val);
 
     if (!header.last_page){
-        std::string rest = getOverflowValue(buffer_pool_manger, page_id);
+        std::string rest = getData(buffer_pool_manager, page_id);
         val.append(rest);
     }
 

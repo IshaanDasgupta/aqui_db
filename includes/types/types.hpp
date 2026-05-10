@@ -56,12 +56,12 @@ enum class PageType : uint16_t {
 };
 
 struct SlottedPageHeader{
-    PageType page_type; // 2 bytes
     uint32_t page_id;
-    uint32_t tuple_count;
-    uint32_t slot_end_offset;
-    uint32_t record_start_offset;
-    uint32_t fragmented_bytes;
+    PageType page_type; // 2 bytes
+    uint16_t tuple_count;
+    uint16_t slot_end_offset;
+    uint16_t record_start_offset;
+    uint16_t fragmented_bytes;
 };
 
 struct SlottedPage {
@@ -99,6 +99,6 @@ struct OverflowPage {
 struct FreePage {
     uint32_t page_id;
     uint16_t offset;
-}l
+};
 
 }

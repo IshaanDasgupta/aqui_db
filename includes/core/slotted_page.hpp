@@ -19,6 +19,9 @@ public:
     );
     // soft delets the kv pair at the given offset in the given page_id and returns to total number of bytes freed
     static uint32_t deleteTuple(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id, const uint32_t offset);
+    
+    static void serializeSlottedPageHeader(char (&buffer)[config::SLOTTED_HEADER_SIZE], const types::SlottedPageHeader& header);
+    static types::SlottedPageHeader deserializeSlottedPageHeader(const char* buffer);
 private:
     SlottedPageManager();
     static void compaction(const char (&buffer)[config::PAGE_SIZE]);

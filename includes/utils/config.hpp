@@ -11,4 +11,5 @@ namespace config {
     constexpr uint32_t OVERFLOW_LIMIT = 1024; // 1KB
     constexpr uint32_t BUFFER_SIZE = 16; // 16 pages
     constexpr uint16_t OVERFLOW_HEADER_SIZE = 13; // 13 bytes
+    constexpr uint16_t SLOTTED_HEADER_SIZE = 13; // 13 bytes
 }
