@@ -2,6 +2,7 @@
 
 #include "types/types.hpp"
 #include "core/buffer_pool_manager.hpp"
+#include "core/free_space_directory.hpp"
 
 namespace core{
 

@@ -1,6 +1,6 @@
-#include "core/slotted_page.hpp"
+#include "core/pages/slotted_page.hpp"
 #include "core/buffer_pool_manager.hpp"
-#include "core/overflow_page.hpp"
+#include "core/pages/overflow_page.hpp"
 #include "types/types.hpp"
 #include "utils/memory.hpp"
 
@@ -90,6 +90,8 @@ uint32_t core::SlottedPageManager::writeTuple(
     uint32_t page_id = free_space_directory.checkFreeSpace(tuple_size) == true ? free_space_directory.consumeFreeSpace(tuple_size) : buffer_pool_manager.createPage();
     types::Frame* frame = buffer_pool_manager.fetchPageMut(page_id);
     char* buffer = frame->buffer;
+
+    //TODO: add header init if new page was created
 
     types::SlottedPageHeader header = deserializeSlottedPageHeader(buffer);    
 

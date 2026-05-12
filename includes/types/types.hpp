@@ -50,10 +50,12 @@ struct Frame
 };
 
 enum class PageType : uint16_t {
-    INVALID         = 0,
-    DATA            = 1,
-    INDEX           = 2,
-    OVERFLOW_PAGE   = 3
+    INVALID             = 0,
+    DATA                = 1,
+    INDEX               = 2,
+    OVERFLOW_PAGE       = 3,
+    BUCKET_DIRECTORY    = 4,
+    BUCKET              = 5
 };
 
 struct SlottedPageHeader{
@@ -95,6 +97,15 @@ struct OverflowPage {
     OverflowPageHeader* header()  {
         return reinterpret_cast<OverflowPageHeader*>(buffer);
     }
+};
+
+struct BucketDirectoryPageHeader{
+    uint32_t page_id;
+    uint32_t next_page_id;
+    uint16_t global_depth;
+    uint16_t data_bytes;
+    PageType page_type; // 2 bytes
+    uint8_t last_page;
 };
 
 }
