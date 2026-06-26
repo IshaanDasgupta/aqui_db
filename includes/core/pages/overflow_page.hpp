@@ -11,13 +11,12 @@ namespace core{
 class OverflowPageManager{
 public:
     static std::string getData(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id);
-    static uint32_t writeData(
-        core::FreeSpaceDirectory& free_space_directory,
-        core::Buffer_Pool_Manager& buffer_pool_manager,
-        const char* data,
-        const size_t len
+    static void writeData(
+        types::Frame* frame,
+        types::OverflowPageHeader header,
+        const char* data
     );
-    static void serializeOverflowPageHeader(char (&buffer)[config::OVERFLOW_HEADER_SIZE], const types::OverflowPageHeader& header);
+    static void serializeOverflowPageHeader(char* buffer, const types::OverflowPageHeader& header);
     static types::OverflowPageHeader deserializeOverflowPageHeader(const char* buffer);
 
 private:

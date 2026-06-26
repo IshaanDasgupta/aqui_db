@@ -1,31 +1,13 @@
 #include "core/pages/overflow_page.hpp"
 
 
-uint32_t core::OverflowPageManager::writeData(
-        core::FreeSpaceDirectory& free_space_directory,
-        core::Buffer_Pool_Manager& buffer_pool_manager,
-        const char* data,
-        const size_t len
+void core::OverflowPageManager::writeData(
+        types::Frame* frame,
+        types::OverflowPageHeader header,
+        const char* data
     ){
-    uint16_t curr_data_len = std::min((size_t)(config::PAGE_SIZE - config::OVERFLOW_HEADER_SIZE), len);
-    uint8_t last_page = (curr_data_len == len);
-    uint32_t next_page_id = last_page ? 0 : writeData(
-                                                free_space_directory,
-                                                buffer_pool_manager,
-                                                data + curr_data_len, 
-                                                len - curr_data_len
-                                            );
-    uint32_t free_page_id = free_space_directory.checkFreePage() == true ? free_space_directory.consumeFreePage() : buffer_pool_manager.createPage();
-    types::Frame* free_frame = buffer_pool_manager.fetchPageMut(free_page_id);
-    char* buffer = free_frame->buffer;
-
-    types::OverflowPageHeader header = {
-        free_page_id,
-        next_page_id,
-        curr_data_len,
-        types::PageType::OVERFLOW_PAGE,
-        last_page
-    };
+    
+    char* buffer = frame->buffer;
 
     // serialize the header and write it
     char headerBuffer[config::OVERFLOW_HEADER_SIZE];
@@ -33,11 +15,12 @@ uint32_t core::OverflowPageManager::writeData(
     std::memcpy(buffer, headerBuffer, config::OVERFLOW_HEADER_SIZE);
 
     // write the data
-    std::memcpy(buffer + config::OVERFLOW_HEADER_SIZE, data, curr_data_len);
-    return free_page_id;
+    std::memcpy(buffer + config::OVERFLOW_HEADER_SIZE, data, header.data_bytes);
+
+    frame->is_dirty = 1;
 };
 
-void core::OverflowPageManager::serializeOverflowPageHeader(char (&buffer)[config::OVERFLOW_HEADER_SIZE], const types::OverflowPageHeader& header){
+void core::OverflowPageManager::serializeOverflowPageHeader(char* buffer, const types::OverflowPageHeader& header){
     uint16_t pos = 0;
 
     memcpy(buffer + pos, &header.page_id, sizeof(header.page_id));
@@ -73,7 +56,7 @@ types::OverflowPageHeader core::OverflowPageManager::deserializeOverflowPageHead
 
 std::string core::OverflowPageManager::getData(core::Buffer_Pool_Manager& buffer_pool_manager, const uint32_t page_id) {
     const types::Frame* frame = buffer_pool_manager.fetchPage(page_id);
-    char* buffer = frame->buffer;
+    const char* buffer = frame->buffer;
 
     std::string val = "";
     types::OverflowPageHeader header = deserializeOverflowPageHeader(buffer);

@@ -1,7 +1,5 @@
 #include "core/buffer_pool_manager.hpp"
 #include "utils/config.hpp"
-#include "buffer_pool_manager.hpp"
-
 
 core::Buffer_Pool_Manager::Buffer_Pool_Manager(core::PageDirectory& page_directory)
     : page_directory_(page_directory),

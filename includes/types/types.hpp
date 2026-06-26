@@ -46,7 +46,7 @@ struct Frame
 {
     uint32_t page_id;
     bool is_dirty;
-    char (&buffer)[config::PAGE_SIZE];
+    char buffer[config::PAGE_SIZE];
 };
 
 enum class PageType : uint16_t {

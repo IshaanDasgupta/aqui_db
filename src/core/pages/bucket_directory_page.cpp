@@ -1,10 +1,9 @@
 #include "core/pages/bucket_directory_page.hpp"
-#include "bucket_directory_page.hpp"
 
 uint32_t core::BucketDirectoryPageManager::getBucketPageId(core::Buffer_Pool_Manager &buffer_pool_manager, uint32_t init_page_id, uint32_t bit_pat){
     const types::Frame* frame = buffer_pool_manager.fetchPage(init_page_id);
 
-    char* buffer;
+    const char* buffer;
     types::BucketDirectoryPageHeader header;
     uint16_t curr_bucket_arr_size;
 
@@ -43,7 +42,7 @@ void core::BucketDirectoryPageManager::updatePageIdMatchingSuffix(core::Buffer_P
     uint32_t incre_uint = (1 << local_depth);
     uint32_t prev_count = 0;
 
-    char* buffer = buffer_pool_manager.fetchPage(init_page_id)->buffer;
+    char* buffer = buffer_pool_manager.fetchPageMut(init_page_id)->buffer;
     types::BucketDirectoryPageHeader header = deserializeBucketDirectoryPageHeader(buffer);
     uint32_t curr_count = header.data_bytes/config::PAGE_ID_SIZE;
 
@@ -59,7 +58,7 @@ void core::BucketDirectoryPageManager::updatePageIdMatchingSuffix(core::Buffer_P
             break;
         
         prev_count += curr_count;
-        buffer = buffer_pool_manager.fetchPage(header.next_page_id)->buffer;
+        buffer = buffer_pool_manager.fetchPageMut(header.next_page_id)->buffer;
         header = deserializeBucketDirectoryPageHeader(buffer);
         curr_count = header.data_bytes/config::PAGE_ID_SIZE;
     }
@@ -70,7 +69,7 @@ void core::BucketDirectoryPageManager::updatePageIdMatchingSuffix(core::Buffer_P
 
 // copying 4 bytes at a time is bad in terms of performance hence batch memcpy is used
 void core::BucketDirectoryPageManager::doubleDirectory(core::Buffer_Pool_Manager &buffer_pool_manager, uint32_t init_page_id){
-    const types::Frame* frame = buffer_pool_manager.fetchPage(init_page_id);
+    types::Frame* frame = buffer_pool_manager.fetchPageMut(init_page_id);
 
     //preping variables for a 2-pointer approach
     char* src_buffer = frame->buffer;
@@ -83,7 +82,6 @@ void core::BucketDirectoryPageManager::doubleDirectory(core::Buffer_Pool_Manager
     char header_buffer[config::BUCKETDIRECTORY_PAGE_HEADER_SIZE];
     serializeBucketDirectoryPageHeader(header_buffer, src_header);
     memcpy(src_buffer, header_buffer, config::BUCKETDIRECTORY_PAGE_HEADER_SIZE);
-
 
     uint32_t end_page_id;
     uint16_t end_offset;
@@ -138,7 +136,7 @@ void core::BucketDirectoryPageManager::doubleDirectory(core::Buffer_Pool_Manager
                 break;
             
             //move src to the next page
-            src_buffer = buffer_pool_manager.fetchPage(src_header.next_page_id)->buffer;
+            src_buffer = buffer_pool_manager.fetchPageMut(src_header.next_page_id)->buffer;
             src_header = deserializeBucketDirectoryPageHeader(src_buffer);
             src_offset = config::BUCKETDIRECTORY_PAGE_HEADER_SIZE;
         }
@@ -174,7 +172,6 @@ void core::BucketDirectoryPageManager::doubleDirectory(core::Buffer_Pool_Manager
     };
 
     //force flush the last bucket_directory page where tgt is pointing to
-    char header_buffer[config::BUCKETDIRECTORY_PAGE_HEADER_SIZE];
     serializeBucketDirectoryPageHeader(header_buffer, tgt_header);
     memcpy(tgt_buffer, header_buffer, config::BUCKETDIRECTORY_PAGE_HEADER_SIZE);
 
